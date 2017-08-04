@@ -396,6 +396,16 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
             if not self.parse_request():
                 # An error code has been sent, just exit
                 return
+
+            method_name = 'send_early_hints'
+            # send 103 early hints
+            # if the user specifies this method in the handler script
+            if hasattr(self, method_name):
+                method = getattr(self, method_name)
+                method()
+                self.wfile.flush() # send the informational 103 response.
+
+            # process and send the main response
             mname = 'do_' + self.command
             if not hasattr(self, mname):
                 self.send_error(
@@ -405,6 +415,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
             method = getattr(self, mname)
             method()
             self.wfile.flush() #actually send the response if not already done.
+
+
         except socket.timeout as e:
             #a read or a write timed out.  Discard this connection
             self.log_error("Request timed out: %r", e)
