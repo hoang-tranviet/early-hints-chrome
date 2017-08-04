@@ -1,0 +1,13 @@
+This is the python server for testing 103 Early Hints against Chrome
+Each python script is to create an HTTP server for a specific test scenario.
+
+These scripts use http.server in python library
+https://docs.python.org/3/library/http.server.html
+
+At the time of writing this README, the library code is in:
+/home/hoang/anaconda3/lib/python3.6/http/server.py
+
+Since this backend class only supports a single response per request,
+I made some changes so that it can send 103 response before the main response.
+The patched library is in ./lib/http/server.py 
+To use the patched class, we can replace the original lib with this one (using symlink to here, for example)
