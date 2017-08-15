@@ -1,4 +1,22 @@
-This is the python server for testing 103 Early Hints against Chrome
+
+# early-hints-chrome
+
+The repository is for implementing Early Hints, an extension to HTTPbis, which is drafted at
+
+https://tools.ietf.org/html/draft-ietf-httpbis-early-hints-04
+
+
+early-hints-chrome/
+-------------------
+
+contains my patches to implement Early Hints in Chrome. This is still work-in-progress.
+
+
+server/
+-------
+
+Python HTTP server side.
+
 Each python script is to create an HTTP server for a specific test scenario.
 
 These scripts use http.server in python library
