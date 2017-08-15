@@ -1,0 +1,117 @@
+From ce6055400647d81dca50aef9e8f7c020683e761a Mon Sep 17 00:00:00 2001
+From: Hoang Tran <hoang.tran@uclouvain.be>
+Date: Wed, 19 Jul 2017 12:42:19 +0900
+Subject: [PATCH 1/2] do not ignore 103 status response
+
+Since 103 is unknown to Chrome, Chrome will assume this is a 200 response
+---
+ net/http/http_stream_parser.cc | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/net/http/http_stream_parser.cc b/net/http/http_stream_parser.cc
+index 7da5ada..d8ba438f3 100644
+--- a/net/http/http_stream_parser.cc
++++ b/net/http/http_stream_parser.cc
+@@ -641,10 +641,10 @@ int HttpStreamParser::DoReadHeadersComplete(int result) {
+     return upload_error_;
+   }
+ 
+-  // Skip over 1xx responses as usual, and allow 4xx/5xx error responses to
++  // Do not skip over 1xx responses, and allow 4xx/5xx error responses to
+   // override the error received while uploading the body.
+   int response_code_class = response_->headers->response_code() / 100;
+-  if (response_code_class == 1 || response_code_class == 4 ||
++  if (response_code_class == 4 ||
+       response_code_class == 5) {
+     return result;
+   }
+@@ -896,22 +896,22 @@ int HttpStreamParser::HandleReadHeaderResult(int result) {
+                 extra_bytes);
+       }
+       read_buf_->SetCapacity(extra_bytes);
+-      if (response_->headers->response_code() / 100 == 1) {
+-        // After processing a 1xx response, the caller will ask for the next
+-        // header, so reset state to support that. We don't completely ignore a
+-        // 1xx response because it cannot be returned in reply to a CONNECT
+-        // request so we return OK here, which lets the caller inspect the
+-        // response and reject it in the event that we're setting up a CONNECT
+-        // tunnel.
+-        response_header_start_offset_ = -1;
+-        response_body_length_ = -1;
+-        // Now waiting for the second set of headers to be read.
+-      } else {
++      // if (response_->headers->response_code() / 100 == 1) {
++      //   // After processing a 1xx response, the caller will ask for the next
++      //   // header, so reset state to support that. We don't completely ignore a
++      //   // 1xx response because it cannot be returned in reply to a CONNECT
++      //   // request so we return OK here, which lets the caller inspect the
++      //   // response and reject it in the event that we're setting up a CONNECT
++      //   // tunnel.
++      //   response_header_start_offset_ = -1;
++      //   response_body_length_ = -1;
++      //   // Now waiting for the second set of headers to be read.
++      // } else {
+         // Only set keep-alive based on final set of headers.
+         response_is_keep_alive_ = response_->headers->IsKeepAlive();
+ 
+         io_state_ = STATE_DONE;
+-      }
++      // }
+       return OK;
+     }
+ 
+-- 
+2.7.4
+
+
+From 41d07cc9743c26642145a1436e27a61eb64a366f Mon Sep 17 00:00:00 2001
+From: Hoang Tran <hoang.tran@uclouvain.be>
+Date: Mon, 31 Jul 2017 16:43:04 +0900
+Subject: [PATCH 2/2] do not ignore 103 status (continue)
+
+there are 2 other places which do ignore 1xx status code.
+Now 103 status code (even with body) is treated as if 200 OK.
+---
+ net/http/http_network_transaction.cc | 12 ++++++------
+ net/http/http_stream_parser.cc       |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/http/http_network_transaction.cc b/net/http/http_network_transaction.cc
+index 7b81b91..07fd31c 100644
+--- a/net/http/http_network_transaction.cc
++++ b/net/http/http_network_transaction.cc
+@@ -1275,12 +1275,12 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
+   // We treat any other 1xx in this same way (although in practice getting
+   // a 1xx that isn't a 100 is rare).
+   // Unless this is a WebSocket request, in which case we pass it on up.
+-  if (response_.headers->response_code() / 100 == 1 &&
+-      !ForWebSocketHandshake()) {
+-    response_.headers = new HttpResponseHeaders(std::string());
+-    next_state_ = STATE_READ_HEADERS;
+-    return OK;
+-  }
++  // if (response_.headers->response_code() / 100 == 1 &&
++  //     !ForWebSocketHandshake()) {
++  //   response_.headers = new HttpResponseHeaders(std::string());
++  //   next_state_ = STATE_READ_HEADERS;
++  //   return OK;
++  // }
+ 
+   if (response_.headers->response_code() == 421 &&
+       (enable_ip_based_pooling_ || enable_alternative_services_)) {
+diff --git a/net/http/http_stream_parser.cc b/net/http/http_stream_parser.cc
+index d8ba438f3..b7106ea 100644
+--- a/net/http/http_stream_parser.cc
++++ b/net/http/http_stream_parser.cc
+@@ -1041,7 +1041,7 @@ void HttpStreamParser::CalculateResponseBodySize() {
+   // Since the 205 status code implies that no additional content will be
+   // provided, a server MUST NOT generate a payload in a 205 response.
+   if (response_->headers->response_code() / 100 == 1) {
+-    response_body_length_ = 0;
++    // response_body_length_ = 0;
+   } else {
+     switch (response_->headers->response_code()) {
+       case 204:  // No Content
+-- 
+2.7.4
+
